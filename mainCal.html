@@ -1,0 +1,179 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<title>YOUR CALENDAR NAME</title>
+<link href='js/fullcalendar.css' rel='stylesheet' />
+<link href='js/fullcalendar.print.css' rel='stylesheet' media='print' />
+<script src='js/jquery-1.9.1.min.js'></script>
+<script src="http://code.jquery.com/ui/1.10.2/jquery-ui.js"></script>
+<script src='js/fullcalendar.min.js'></script>
+<script src='js/jquery.autocomplete.js'></script>
+<script src='js/jquery.facelist.js'></script>
+<script src='js/date-en-US.js'></script>
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.2/themes/smoothness/jquery-ui.css">
+<link href='js/facelist.css' rel='stylesheet' media='screen' title='Facelist' charset='utf-8' />
+<script>
+	$(document).ready(function() {
+		
+		$("#list_user").autocomplete("list-students", properties = { 
+								matchContains: true,
+								minChars: 2,
+								selectFirst: false, 
+								intro_text: "Type Name", 
+								no_result: "No Names",
+							}); 
+		$("#submit").click(function(){
+			var data = $("#to_users").val();
+			var evt_id = $('#evt_id').val();
+			var act_type = $('#act_type').val();
+			$('#submit').val('Loading...');
+			$('#submit').prop('disabled',true);
+			jQuery.ajax({
+				url: 'update_evt',
+				type: 'POST',
+				data: {data: data, evt_id: evt_id, act_type: act_type}
+			}).done(function(msg) {
+				if (msg == 'RESERVED') {
+					alert('Sorry, this time slot may just be filled, please choose another one.');
+				} else if (msg == 'RESERVE_OK') {
+					alert('Thanks, reservation succeeded. One calendar event has been sent to all participants.');
+				} else if (msg == 'CANCEL_NULL') {
+					alert('This time slot has not been reserved. You cannot cancel it.');
+				} else if (msg == 'CANCEL_OK') {
+					alert('This reservation has been canceled. A cancel notification has been sent to all participants.')
+				} else if (msg == 'CANCEL_INVALID') {
+					alert('You did not provide correct participant information. You are not authorized to cancel this reservation.')
+				} else {
+					alert('Ouch! Unexpected Error, please try again!');
+				}
+				location.reload();
+			});
+		});	
+		$('#dialog').dialog({autoOpen:false,
+							minWidth:570, minHeight:400});
+		$( "#dialog-confirm" ).dialog({
+			autoOpen: false,
+      		resizable: false,
+      		height:200,
+      		modal: true,
+      		buttons: {
+        	"Verify to cancel": function() {
+          		$( this ).dialog( "close" );
+          		$( '#dialog' ).dialog( 'open');
+        	},
+        	Cancel: function() {
+          		$( this ).dialog( "close" );
+        	}
+      	}});
+		var date = new Date();
+		var d = date.getDate();
+		var m = date.getMonth();
+		var y = date.getFullYear();
+		$('#calendar').fullCalendar({
+			header: {
+				left: 'prev,next today',
+				center: 'title',
+				right: 'month,agendaWeek,agendaDay'
+			},
+		
+			editable: false,
+
+			eventClick: function(calEvent, jsEvent, view) {
+				var now = new Date();
+				var dtstart = calEvent.start;
+				if (now > dtstart) {
+					alert('You cannot reserve a past time slot!');
+					return;
+				}
+				$('#evtInfo').html('Instructor: '+calEvent.title+'<br>Start: '+calEvent.start+'<br>End: '+calEvent.end);
+				$('#evt_id').val(calEvent.id);
+				if (calEvent.description == '') {
+					$('#cancelSuggest').hide();
+					$('#reserveSuggest').show();
+					$('#submit').val('Reserve');
+					$('#act_type').val('reserve');
+					$('#dialog').dialog("open");
+				} else {
+					$('#reserveSuggest').hide();
+					$('#cancelSuggest').show();
+					$('#submit').val('Cancel Reservation');
+					$('#act_type').val('cancel');
+					$('#dialog-confirm').dialog("open");
+				}
+			},
+			events: "/list-events",
+			loading: function(bool) {
+				if (bool) $('#loading').show();
+				else $('#loading').hide();
+			}
+			
+		});
+		
+		
+	});
+
+</script>
+<style>
+
+	body {
+		margin-top: 10px;
+		text-align: center;
+		font-size: 14px;
+		font-family: "Lucida Grande",Helvetica,Arial,Verdana,sans-serif;
+		}
+		
+	#loading {
+		position: absolute;
+		top: 5px;
+		right: 5px;
+		}
+
+	#calendar {
+		width: 900px;
+		margin: 0 auto;
+		}
+
+</style>
+</head>
+<body>
+<div id='header' style='min-height:20px;width:900px;margin:auto;margin-bottom:30px;'>
+	<p style='float:left;'>Welcome!</p>
+	<div style='margin:1em;float:left;height:15px;width:15px;background-color:#3a87ab'></div><p style='float:left;'>Available</p>
+	<div style='margin:1em;float:left;height:15px;width:15px;background-color:#640125'></div><p style='float:left;'>Reserved</p>
+	
+</div>
+<div id='loading' style='display:none'>loading...</div>
+<div id='calendar'></div>
+
+
+
+<div id="dialog" title="Choose Attendents">
+	<p id="evtInfo" style="background-color:#BBBCDE;"></p>
+	<p id="reserveSuggest">Please input the names of participants who will attend the Private Tutoring then click Reserve button. A calendar will be sent automatically to participants' and GSI's email accounts:</p>
+	<p id="cancelSuggest">Please input name of at least one participant who planed to attend the Private Tutoring then click Cancel button. A cancel notification will be sent automatically to participants' and GSI's email accounts:
+	</p>
+	<div style='font: 90%/1.6em "lucida grande", tahoma, verdana, arial, sans-serif;'>
+  <form>
+		<ul class="facelist">
+			<li class="token-input"><input class="maininput" id="list_user" type="text" /></li>
+		</ul>
+		<div id="result_list" style="display:none;"></div>
+		<div style='margin-top:40px;'>
+        <input type="button" id="submit" value="Reserve" />
+    	</div>
+        <input type="hidden" id="evt_id" value="" />
+        <input type="hidden" id="act_type" value="reserve" />
+    </form>
+	</div>
+</div>
+
+<div id="dialog-confirm" title="Cancel the reservation?">
+  <p><span class="ui-icon ui-icon-alert" style="float: left; margin: 0 7px 20px 0;"></span>This time slot has been filled by other students. If you are the owner, do you want to it canceled?</p>
+</div>
+
+<div>
+<p style='color:#666;'>Coded by Alfred Yuan, All rights reserved.</p>
+</div>
+
+</body>
+</html>
